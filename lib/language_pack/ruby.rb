@@ -18,6 +18,8 @@ class LanguagePack::Ruby < LanguagePack::Base
   BUNDLER_GEM_PATH     = "bundler-#{BUNDLER_VERSION}"
   DEFAULT_RUBY_VERSION = "ruby-2.0.0"
   RBX_BASE_URL         = "http://binaries.rubini.us/heroku"
+  PRINCE_VERSION       = "9.0r5"
+  PRINCE_BASE_URL      = "http://www.princexml.com/download"
   NODE_BP_PATH         = "vendor/node/bin"
 
   # detects if this is a valid Ruby app
@@ -40,6 +42,7 @@ class LanguagePack::Ruby < LanguagePack::Base
     super(build_path, cache_path)
     @fetchers[:mri]    = LanguagePack::Fetcher.new(VENDOR_URL, @stack)
     @fetchers[:rbx]    = LanguagePack::Fetcher.new(RBX_BASE_URL, @stack)
+    @fetchers[:prince] = LanguagePack::Fetcher.new(PRINCE_BASE_URL)
     @node_installer    = LanguagePack::NodeInstaller.new(@stack)
     @jvm_installer     = LanguagePack::JvmInstaller.new(slug_vendor_jvm, @stack)
   end
@@ -435,6 +438,18 @@ ERROR
       binaries.each {|binary| install_binary(binary) }
       Dir["bin/*"].each {|path| run("chmod +x #{path}") }
     end
+
+    topic "Installing PrinceXML"
+    package = "prince-#{PRINCE_VERSION}-linux-amd64-static"
+    @fetchers[:prince].fetch_untar("#{package}.tar.gz")
+    @fetchers[:prince].run!("yes '..' | ./#{package}/install.sh")
+    File.open("./bin/prince", "w") do |f|
+      f.puts %{
+#!/bin/sh
+exec /app/lib/prince/bin/prince --prefix="/app/lib/prince" "$@"
+      }
+    end
+    FileUtils.rm_rf(package)
   end
 
   # vendors individual binary into the slug
